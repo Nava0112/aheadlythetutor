@@ -14,7 +14,282 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      concept_mastery: {
+        Row: {
+          attempts: number
+          concept_id: string
+          created_at: string
+          id: string
+          last_reviewed_at: string | null
+          score: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          concept_id: string
+          created_at?: string
+          id?: string
+          last_reviewed_at?: string | null
+          score?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          concept_id?: string
+          created_at?: string
+          id?: string
+          last_reviewed_at?: string | null
+          score?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "concept_mastery_concept_id_fkey"
+            columns: ["concept_id"]
+            isOneToOne: false
+            referencedRelation: "path_concepts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      learning_paths: {
+        Row: {
+          created_at: string
+          goal: string
+          id: string
+          level: string
+          status: string
+          subject: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          goal: string
+          id?: string
+          level?: string
+          status?: string
+          subject: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          goal?: string
+          id?: string
+          level?: string
+          status?: string
+          subject?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      path_concepts: {
+        Row: {
+          created_at: string
+          difficulty: string
+          id: string
+          order_index: number
+          path_id: string
+          prerequisites: string[]
+          status: string
+          summary: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          difficulty?: string
+          id?: string
+          order_index?: number
+          path_id: string
+          prerequisites?: string[]
+          status?: string
+          summary?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          difficulty?: string
+          id?: string
+          order_index?: number
+          path_id?: string
+          prerequisites?: string[]
+          status?: string
+          summary?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "path_concepts_path_id_fkey"
+            columns: ["path_id"]
+            isOneToOne: false
+            referencedRelation: "learning_paths"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      tutor_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          role: string
+          session_id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          role: string
+          session_id: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          role?: string
+          session_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tutor_messages_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "tutor_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tutor_sessions: {
+        Row: {
+          concept_id: string | null
+          created_at: string
+          id: string
+          kind: string
+          path_id: string | null
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          concept_id?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          path_id?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          concept_id?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          path_id?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tutor_sessions_concept_id_fkey"
+            columns: ["concept_id"]
+            isOneToOne: false
+            referencedRelation: "path_concepts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_sessions_path_id_fkey"
+            columns: ["path_id"]
+            isOneToOne: false
+            referencedRelation: "learning_paths"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tutor_state: {
+        Row: {
+          current_concept_id: string | null
+          path_id: string | null
+          phase: string
+          struggle_streak: number
+          teaching_style: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          current_concept_id?: string | null
+          path_id?: string | null
+          phase?: string
+          struggle_streak?: number
+          teaching_style?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          current_concept_id?: string | null
+          path_id?: string | null
+          phase?: string
+          struggle_streak?: number
+          teaching_style?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tutor_state_current_concept_id_fkey"
+            columns: ["current_concept_id"]
+            isOneToOne: false
+            referencedRelation: "path_concepts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_state_path_id_fkey"
+            columns: ["path_id"]
+            isOneToOne: false
+            referencedRelation: "learning_paths"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
