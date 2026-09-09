@@ -15,6 +15,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authenticated/onboarding'
 import { Route as AuthenticatedPathRouteImport } from './routes/_authenticated/path'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
+import { Route as AuthenticatedLearnConceptIdRouteImport } from './routes/_authenticated/learn.$conceptId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -45,6 +46,12 @@ const ApiChatRoute = ApiChatRouteImport.update({
   path: '/api/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedLearnConceptIdRoute =
+  AuthenticatedLearnConceptIdRouteImport.update({
+    id: '/learn/$conceptId',
+    path: '/learn/$conceptId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -52,6 +59,7 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/path': typeof AuthenticatedPathRoute
   '/api/chat': typeof ApiChatRoute
+  '/learn/$conceptId': typeof AuthenticatedLearnConceptIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -59,6 +67,7 @@ export interface FileRoutesByTo {
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/path': typeof AuthenticatedPathRoute
   '/api/chat': typeof ApiChatRoute
+  '/learn/$conceptId': typeof AuthenticatedLearnConceptIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -68,12 +77,15 @@ export interface FileRoutesById {
   '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
   '/_authenticated/path': typeof AuthenticatedPathRoute
   '/api/chat': typeof ApiChatRoute
+  '/_authenticated/learn/$conceptId': typeof AuthenticatedLearnConceptIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/onboarding' | '/path' | '/api/chat'
+  fullPaths:
+    '/' | '/auth' | '/onboarding' | '/path' | '/api/chat' | '/learn/$conceptId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/onboarding' | '/path' | '/api/chat'
+  to:
+    '/' | '/auth' | '/onboarding' | '/path' | '/api/chat' | '/learn/$conceptId'
   id:
     | '__root__'
     | '/'
@@ -82,6 +94,7 @@ export interface FileRouteTypes {
     | '/_authenticated/onboarding'
     | '/_authenticated/path'
     | '/api/chat'
+    | '/_authenticated/learn/$conceptId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -135,17 +148,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiChatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/learn/$conceptId': {
+      id: '/_authenticated/learn/$conceptId'
+      path: '/learn/$conceptId'
+      fullPath: '/learn/$conceptId'
+      preLoaderRoute: typeof AuthenticatedLearnConceptIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedOnboardingRoute: typeof AuthenticatedOnboardingRoute
   AuthenticatedPathRoute: typeof AuthenticatedPathRoute
+  AuthenticatedLearnConceptIdRoute: typeof AuthenticatedLearnConceptIdRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedOnboardingRoute: AuthenticatedOnboardingRoute,
   AuthenticatedPathRoute: AuthenticatedPathRoute,
+  AuthenticatedLearnConceptIdRoute: AuthenticatedLearnConceptIdRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
