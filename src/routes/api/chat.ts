@@ -59,7 +59,7 @@ export const Route = createFileRoute("/api/chat")({
           .insert({ session_id: session.id, user_id: userId, role: "user", content: message });
 
         const { tutorSystemPrompt } = await import("@/lib/agents.server");
-        const { deepseekStream, pickModel } = await import("@/lib/deepseek.server");
+        const { groqStream, pickModel } = await import("@/lib/groq.server");
 
         const subject = path?.subject ?? "general studies";
         const system = tutorSystemPrompt({
@@ -86,7 +86,7 @@ export const Route = createFileRoute("/api/chat")({
           async start(controller) {
             let full = "";
             try {
-              for await (const chunk of deepseekStream({
+              for await (const chunk of groqStream({
                 model: pickModel(subject),
                 temperature: 0.6,
                 messages,
