@@ -1,16 +1,16 @@
 /**
- * DeepSeek API client (server-only).
+ * Groq API client (server-only).
  * Handles model routing, timeouts, rate limiting, retries with exponential
  * backoff and clear, surfaceable errors.
  */
 
-const DEEPSEEK_URL = "https://api.deepseek.com/chat/completions";
+const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 
 export type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 
-export type DeepSeekModel = "deepseek-chat" | "deepseek-reasoner";
+export type GroqModel = "llama-3.3-70b-versatile" | "openai/gpt-oss-120b";
 
-/** Subjects that benefit from the R1 reasoning model. */
+/** Subjects that benefit from the reasoning model. */
 const REASONING_HINTS = [
   "math",
   "algebra",
@@ -29,51 +29,53 @@ const REASONING_HINTS = [
   "algorithm",
 ];
 
-export function pickModel(subject: string | null | undefined): DeepSeekModel {
+export function pickModel(subject: string | null | undefined): GroqModel {
   const s = (subject ?? "").toLowerCase();
-  return REASONING_HINTS.some((hint) => s.includes(hint)) ? "deepseek-reasoner" : "deepseek-chat";
+  return REASONING_HINTS.some((hint) => s.includes(hint))
+    ? "openai/gpt-oss-120b"
+    : "llama-3.3-70b-versatile";
 }
 
-export class DeepSeekError extends Error {
+export class GroqError extends Error {
   status: number;
   retryable: boolean;
   constructor(message: string, status: number, retryable: boolean) {
     super(message);
-    this.name = "DeepSeekError";
+    this.name = "GroqError";
     this.status = status;
     this.retryable = retryable;
   }
 }
 
 function apiKey(): string {
-  const key = process.env["DEEPSEEK_API_KEY"];
+  const key = process.env["GROQ_API_KEY"];
   if (!key) {
-    throw new DeepSeekError("The DeepSeek API key is not configured.", 500, false);
+    throw new GroqError("The Groq API key is not configured.", 500, false);
   }
   return key;
 }
 
-function friendly(status: number, body: string): DeepSeekError {
+function friendly(status: number, body: string): GroqError {
   if (status === 401 || status === 403) {
-    return new DeepSeekError("DeepSeek rejected the API key. Check that it is valid.", status, false);
+    return new GroqError("Groq rejected the API key. Check that it is valid.", status, false);
   }
   if (status === 402) {
-    return new DeepSeekError("The DeepSeek account is out of credit.", status, false);
+    return new GroqError("The Groq account is out of credit.", status, false);
   }
   if (status === 429) {
-    return new DeepSeekError("DeepSeek is rate limiting requests. Try again shortly.", status, true);
+    return new GroqError("Groq is rate limiting requests. Try again shortly.", status, true);
   }
   if (status >= 500) {
-    return new DeepSeekError("DeepSeek is temporarily unavailable.", status, true);
+    return new GroqError("Groq is temporarily unavailable.", status, true);
   }
-  return new DeepSeekError(`DeepSeek request failed (${status}): ${body.slice(0, 300)}`, status, false);
+  return new GroqError(`Groq request failed (${status}): ${body.slice(0, 300)}`, status, false);
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 type CallOptions = {
   messages: ChatMessage[];
-  model?: DeepSeekModel;
+  model?: GroqModel;
   temperature?: number;
   maxTokens?: number;
   json?: boolean;
@@ -81,12 +83,12 @@ type CallOptions = {
   signal?: AbortSignal;
 };
 
-/** Single fetch attempt against DeepSeek. */
+/** Single fetch attempt against Groq. */
 async function attempt(options: CallOptions): Promise<Response> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), options.stream ? 120_000 : 90_000);
   try {
-    const response = await fetch(DEEPSEEK_URL, {
+    const response = await fetch(GROQ_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -94,7 +96,7 @@ async function attempt(options: CallOptions): Promise<Response> {
       },
       signal: options.signal ?? controller.signal,
       body: JSON.stringify({
-        model: options.model ?? "deepseek-chat",
+        model: options.model ?? "llama-3.3-70b-versatile",
         messages: options.messages,
         stream: Boolean(options.stream),
         ...(options.temperature === undefined ? {} : { temperature: options.temperature }),
@@ -121,18 +123,18 @@ async function withRetries(options: CallOptions, maxAttempts = 3): Promise<Respo
     } catch (error) {
       lastError = error;
       const retryable =
-        (error instanceof DeepSeekError && error.retryable) ||
+        (error instanceof GroqError && error.retryable) ||
         (error instanceof Error && error.name === "AbortError");
       if (!retryable || i === maxAttempts - 1) break;
       await sleep(600 * 2 ** i + Math.random() * 400);
     }
   }
-  if (lastError instanceof DeepSeekError) throw lastError;
-  throw new DeepSeekError("Could not reach DeepSeek. Please try again.", 503, true);
+  if (lastError instanceof GroqError) throw lastError;
+  throw new GroqError("Could not reach Groq. Please try again.", 503, true);
 }
 
 /** Buffered completion. Returns the assistant text. */
-export async function deepseekText(options: CallOptions): Promise<string> {
+export async function groqText(options: CallOptions): Promise<string> {
   const response = await withRetries({ ...options, stream: false });
   const data = (await response.json()) as {
     choices?: Array<{ message?: { content?: string } }>;
@@ -141,8 +143,8 @@ export async function deepseekText(options: CallOptions): Promise<string> {
 }
 
 /** JSON completion, parsed and validated by the caller. */
-export async function deepseekJson<T>(options: CallOptions): Promise<T> {
-  const raw = await deepseekText({ ...options, json: true });
+export async function groqJson<T>(options: CallOptions): Promise<T> {
+  const raw = await groqText({ ...options, json: true });
   const cleaned = raw
     .trim()
     .replace(/^```(?:json)?/i, "")
@@ -156,14 +158,14 @@ export async function deepseekJson<T>(options: CallOptions): Promise<T> {
     if (start !== -1 && end > start) {
       return JSON.parse(cleaned.slice(start, end + 1)) as T;
     }
-    throw new DeepSeekError("DeepSeek returned an unreadable response. Please try again.", 502, true);
+    throw new GroqError("Groq returned an unreadable response. Please try again.", 502, true);
   }
 }
 
 /**
  * Streaming completion. Yields plain text deltas as they arrive.
  */
-export async function* deepseekStream(options: CallOptions): AsyncGenerator<string> {
+export async function* groqStream(options: CallOptions): AsyncGenerator<string> {
   const response = await withRetries({ ...options, stream: true }, 2);
   const body = response.body;
   if (!body) return;

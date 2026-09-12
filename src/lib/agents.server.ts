@@ -1,8 +1,8 @@
 /**
  * Specialised tutor agents. Each agent is a prompt + output contract that runs
- * on top of the DeepSeek client.
+ * on top of the Groq client.
  */
-import { deepseekJson, pickModel, type ChatMessage } from "./deepseek.server";
+import { groqJson, pickModel, type ChatMessage } from "./groq.server";
 
 export type DiagnosticQuestion = { id: string; prompt: string; skill: string };
 
@@ -29,7 +29,7 @@ export async function generateDiagnostic(input: {
   goal: string;
   level: string;
 }): Promise<DiagnosticQuestion[]> {
-  const result = await deepseekJson<{ questions?: DiagnosticQuestion[] }>({
+  const result = await groqJson<{ questions?: DiagnosticQuestion[] }>({
     model: pickModel(input.subject),
     temperature: 0.4,
     messages: [
@@ -67,7 +67,7 @@ export async function generateLearningPath(input: {
     .map((a, i) => `Q${i + 1} (${a.skill}): ${a.prompt}\nAnswer: ${a.answer || "(no answer)"}`)
     .join("\n\n");
 
-  const result = await deepseekJson<{ level?: string; concepts?: GeneratedConcept[] }>({
+  const result = await groqJson<{ level?: string; concepts?: GeneratedConcept[] }>({
     model: pickModel(input.subject),
     temperature: 0.3,
     maxTokens: 3000,
@@ -143,7 +143,7 @@ export async function generateCheck(input: {
   conceptSummary: string;
   difficulty: string;
 }): Promise<CheckQuestion[]> {
-  const result = await deepseekJson<{ questions?: CheckQuestion[] }>({
+  const result = await groqJson<{ questions?: CheckQuestion[] }>({
     model: pickModel(input.subject),
     temperature: 0.5,
     messages: [
@@ -182,7 +182,7 @@ export async function gradeCheck(input: {
     )
     .join("\n\n");
 
-  const result = await deepseekJson<Partial<CheckGrade>>({
+  const result = await groqJson<Partial<CheckGrade>>({
     model: pickModel(input.subject),
     temperature: 0.2,
     messages: [
