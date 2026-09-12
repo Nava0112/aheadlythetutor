@@ -8,7 +8,7 @@ const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 
 export type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 
-export type GroqModel = "llama-3.3-70b-versatile" | "openai/gpt-oss-120b";
+export type GroqModel = "openai/gpt-oss-20b" | "openai/gpt-oss-120b";
 
 /** Subjects that benefit from the reasoning model. */
 const REASONING_HINTS = [
@@ -33,7 +33,7 @@ export function pickModel(subject: string | null | undefined): GroqModel {
   const s = (subject ?? "").toLowerCase();
   return REASONING_HINTS.some((hint) => s.includes(hint))
     ? "openai/gpt-oss-120b"
-    : "llama-3.3-70b-versatile";
+    : "openai/gpt-oss-20b";
 }
 
 export class GroqError extends Error {
@@ -96,7 +96,7 @@ async function attempt(options: CallOptions): Promise<Response> {
       },
       signal: options.signal ?? controller.signal,
       body: JSON.stringify({
-        model: options.model ?? "llama-3.3-70b-versatile",
+        model: options.model ?? "openai/gpt-oss-20b",
         messages: options.messages,
         stream: Boolean(options.stream),
         ...(options.temperature === undefined ? {} : { temperature: options.temperature }),
