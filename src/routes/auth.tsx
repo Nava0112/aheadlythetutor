@@ -37,7 +37,7 @@ function AuthPage() {
     setBusy(true);
     try {
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -46,10 +46,24 @@ function AuthPage() {
           },
         });
         if (error) throw error;
+        if (!data.session) {
+          // Auto-confirm is on, so sign in straight away.
+          const { error: signInError } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+          });
+          if (signInError) throw signInError;
+        }
         toast.success("Account created");
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
+      }
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) {
+        toast.error("We couldn't start your session. Please try signing in again.");
+        return;
       }
       navigate({ to: "/path" });
     } catch (error) {
