@@ -70,16 +70,20 @@ export async function generateDiagnostic(input: {
 Goal: ${input.goal}
 Self-reported level: ${input.level}
 
-Write exactly 4 short open-response diagnostic questions, ordered from easiest to hardest, that probe distinct prerequisite skills.
-Return JSON: {"questions":[{"id":"q1","prompt":"...","skill":"..."}]}`,
+Write exactly 5 diagnostic questions ordered from easiest to hardest, probing distinct prerequisite skills.
+Exactly 3 must be multiple choice ("mcq") with 4 plausible options and one correct option, and exactly 2 must be open response ("open").
+For mcq questions give "options" (4 strings) and "correctIndex" (0-based). For open questions use "options": [] and "correctIndex": null.
+Return JSON: {"questions":[{"id":"q1","prompt":"...","skill":"...","type":"mcq","options":["..."],"correctIndex":0}]}`,
       },
     ],
   });
-  return (result.questions ?? []).slice(0, 4).map((q, i) => ({
+  return (result.questions ?? []).slice(0, 5).map((q, i) => ({
     id: q.id || `q${i + 1}`,
     prompt: String(q.prompt ?? ""),
     skill: String(q.skill ?? "general"),
+    ...normaliseQuestion(q),
   }));
+
 }
 
 /** Curriculum Designer: turns the diagnostic into an ordered learning path. */
