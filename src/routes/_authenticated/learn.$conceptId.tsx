@@ -15,7 +15,14 @@ export const Route = createFileRoute("/_authenticated/learn/$conceptId")({
 });
 
 type Msg = { id: string; role: string; content: string };
-type CheckQuestion = { prompt: string; expected: string };
+type CheckQuestion = {
+  prompt: string;
+  expected: string;
+  type: "mcq" | "open";
+  options: string[];
+  correctIndex: number | null;
+};
+
 
 function LearnPage() {
   const { conceptId } = Route.useParams();
