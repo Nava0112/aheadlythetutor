@@ -196,15 +196,36 @@ function LearnPage() {
           <div className="mt-4 space-y-4">
             {questions.map((q, i) => (
               <div key={i} className="rounded-xl border border-border bg-card p-5">
-                <p className="text-lg">{q.prompt}</p>
-                <Textarea
-                  rows={3}
-                  className="mt-3"
-                  value={answers[i] ?? ""}
-                  onChange={(e) => setAnswers({ ...answers, [i]: e.target.value })}
-                />
+                <p className="text-xs uppercase tracking-wider text-muted-foreground">
+                  {q.type === "mcq" ? "Multiple choice" : "Written answer"}
+                </p>
+                <p className="mt-2 text-lg">{q.prompt}</p>
+                {q.type === "mcq" ? (
+                  <RadioGroup
+                    className="mt-3"
+                    value={answers[i] ?? ""}
+                    onValueChange={(v) => setAnswers({ ...answers, [i]: v })}
+                  >
+                    {q.options.map((opt, oi) => (
+                      <div key={oi} className="flex items-start gap-3">
+                        <RadioGroupItem value={String(oi)} id={`q${i}-${oi}`} className="mt-1" />
+                        <Label htmlFor={`q${i}-${oi}`} className="font-normal leading-relaxed">
+                          {opt}
+                        </Label>
+                      </div>
+                    ))}
+                  </RadioGroup>
+                ) : (
+                  <Textarea
+                    rows={3}
+                    className="mt-3"
+                    value={answers[i] ?? ""}
+                    onChange={(e) => setAnswers({ ...answers, [i]: e.target.value })}
+                  />
+                )}
               </div>
             ))}
+
           </div>
           <div className="mt-6 flex gap-3">
             <Button onClick={finishCheck} disabled={busy}>
