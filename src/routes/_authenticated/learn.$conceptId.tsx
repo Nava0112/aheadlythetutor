@@ -119,7 +119,15 @@ function LearnPage() {
             prompt: q.prompt,
             expected: q.expected,
             answer: answers[i] ?? "",
+            type: q.type,
+            options: q.options,
+            correctIndex: q.correctIndex,
+            selectedIndex:
+              q.type === "mcq" && answers[i] !== undefined && answers[i] !== ""
+                ? Number(answers[i])
+                : null,
           })),
+
         },
       });
       setQuestions(null);
