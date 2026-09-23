@@ -132,24 +132,41 @@ function Onboarding() {
         </div>
       ) : (
         <div className="max-w-2xl">
-          <h1 className="text-4xl">Four questions</h1>
+          <h1 className="text-4xl">A few questions</h1>
           <p className="mt-3 text-muted-foreground">
-            Answer in your own words. A blank answer is fine — it just tells the tutor to start
-            there.
+            Some are multiple choice, some are in your own words. Blank is fine — it just tells the
+            tutor to start there.
           </p>
           <div className="mt-8 space-y-6">
             {questions.map((q, i) => (
               <div key={q.id} className="rounded-xl border border-border bg-card p-5">
                 <p className="text-xs uppercase tracking-wider text-muted-foreground">
-                  Question {i + 1} · {q.skill}
+                  Question {i + 1} · {q.skill} · {q.type === "mcq" ? "Multiple choice" : "Written"}
                 </p>
                 <p className="mt-2 text-lg">{q.prompt}</p>
-                <Textarea
-                  className="mt-3"
-                  rows={3}
-                  value={answers[q.id] ?? ""}
-                  onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })}
-                />
+                {q.type === "mcq" ? (
+                  <RadioGroup
+                    className="mt-3"
+                    value={answers[q.id] ?? ""}
+                    onValueChange={(v) => setAnswers({ ...answers, [q.id]: v })}
+                  >
+                    {q.options.map((opt, oi) => (
+                      <div key={oi} className="flex items-start gap-3">
+                        <RadioGroupItem value={opt} id={`${q.id}-${oi}`} className="mt-1" />
+                        <Label htmlFor={`${q.id}-${oi}`} className="font-normal leading-relaxed">
+                          {opt}
+                        </Label>
+                      </div>
+                    ))}
+                  </RadioGroup>
+                ) : (
+                  <Textarea
+                    className="mt-3"
+                    rows={3}
+                    value={answers[q.id] ?? ""}
+                    onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })}
+                  />
+                )}
               </div>
             ))}
           </div>
@@ -157,6 +174,7 @@ function Onboarding() {
             {busy ? "Designing your path…" : "Build my learning path"}
           </Button>
         </div>
+
       )}
     </AppShell>
   );
