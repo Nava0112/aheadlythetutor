@@ -4,7 +4,14 @@
  */
 import { groqJson, pickModel, type ChatMessage } from "./groq.server";
 
-export type DiagnosticQuestion = { id: string; prompt: string; skill: string };
+export type DiagnosticQuestion = {
+  id: string;
+  prompt: string;
+  skill: string;
+  type: "mcq" | "open";
+  options: string[];
+  correctIndex: number | null;
+};
 
 export type GeneratedConcept = {
   title: string;
@@ -14,7 +21,13 @@ export type GeneratedConcept = {
   estimatedMastery: number;
 };
 
-export type CheckQuestion = { prompt: string; expected: string };
+export type CheckQuestion = {
+  prompt: string;
+  expected: string;
+  type: "mcq" | "open";
+  options: string[];
+  correctIndex: number | null;
+};
 
 export type CheckGrade = {
   score: number;
@@ -22,6 +35,19 @@ export type CheckGrade = {
   feedback: string;
   errorType: "careless" | "conceptual" | "knowledge-gap" | "none";
 };
+
+/** Normalises a model-produced question into a safe MCQ or open question. */
+function normaliseQuestion<T extends { type?: string; options?: unknown; correctIndex?: unknown }>(
+  q: T,
+): { type: "mcq" | "open"; options: string[]; correctIndex: number | null } {
+  const options = Array.isArray(q.options) ? q.options.map(String).filter(Boolean) : [];
+  const index = Number(q.correctIndex);
+  const isMcq = q.type === "mcq" && options.length >= 2 && Number.isInteger(index) && index >= 0 && index < options.length;
+  return isMcq
+    ? { type: "mcq", options, correctIndex: index }
+    : { type: "open", options: [], correctIndex: null };
+}
+
 
 /** Assessment Proctor (light): a short diagnostic before the path is built. */
 export async function generateDiagnostic(input: {
