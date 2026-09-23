@@ -20,7 +20,15 @@ export const Route = createFileRoute("/_authenticated/onboarding")({
   component: Onboarding,
 });
 
-type Question = { id: string; prompt: string; skill: string };
+type Question = {
+  id: string;
+  prompt: string;
+  skill: string;
+  type: "mcq" | "open";
+  options: string[];
+  correctIndex: number | null;
+};
+
 
 function Onboarding() {
   const navigate = useNavigate();
