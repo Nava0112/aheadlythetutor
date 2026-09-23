@@ -284,7 +284,15 @@ export const submitCheck = createServerFn({ method: "POST" })
       .object({
         conceptId: z.string().uuid(),
         answers: z.array(
-          z.object({ prompt: z.string(), expected: z.string(), answer: z.string() }),
+          z.object({
+            prompt: z.string(),
+            expected: z.string(),
+            answer: z.string(),
+            type: z.enum(["mcq", "open"]).default("open"),
+            options: z.array(z.string()).default([]),
+            correctIndex: z.number().int().nullable().default(null),
+            selectedIndex: z.number().int().nullable().default(null),
+          }),
         ),
       })
       .parse(input),
@@ -303,11 +311,25 @@ export const submitCheck = createServerFn({ method: "POST" })
     const subject =
       (concept as { learning_paths?: { subject?: string } }).learning_paths?.subject ?? "general studies";
 
+    const mcq = data.answers
+      .filter((a) => a.type === "mcq" && a.correctIndex !== null)
+      .map((a) => ({
+        prompt: a.prompt,
+        chosen: a.selectedIndex === null ? "" : (a.options[a.selectedIndex] ?? ""),
+        correct: a.options[a.correctIndex as number] ?? "",
+        isCorrect: a.selectedIndex === a.correctIndex,
+      }));
+    const open = data.answers
+      .filter((a) => a.type !== "mcq" || a.correctIndex === null)
+      .map((a) => ({ prompt: a.prompt, expected: a.expected, answer: a.answer }));
+
     const grade = await gradeCheck({
       subject,
       conceptTitle: concept.title,
-      answers: data.answers,
+      open,
+      mcq,
     });
+
 
     const { data: existing } = await supabase
       .from("concept_mastery")

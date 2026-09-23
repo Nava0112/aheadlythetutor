@@ -4,7 +4,14 @@
  */
 import { groqJson, pickModel, type ChatMessage } from "./groq.server";
 
-export type DiagnosticQuestion = { id: string; prompt: string; skill: string };
+export type DiagnosticQuestion = {
+  id: string;
+  prompt: string;
+  skill: string;
+  type: "mcq" | "open";
+  options: string[];
+  correctIndex: number | null;
+};
 
 export type GeneratedConcept = {
   title: string;
@@ -14,7 +21,13 @@ export type GeneratedConcept = {
   estimatedMastery: number;
 };
 
-export type CheckQuestion = { prompt: string; expected: string };
+export type CheckQuestion = {
+  prompt: string;
+  expected: string;
+  type: "mcq" | "open";
+  options: string[];
+  correctIndex: number | null;
+};
 
 export type CheckGrade = {
   score: number;
@@ -22,6 +35,19 @@ export type CheckGrade = {
   feedback: string;
   errorType: "careless" | "conceptual" | "knowledge-gap" | "none";
 };
+
+/** Normalises a model-produced question into a safe MCQ or open question. */
+function normaliseQuestion<T extends { type?: string; options?: unknown; correctIndex?: unknown }>(
+  q: T,
+): { type: "mcq" | "open"; options: string[]; correctIndex: number | null } {
+  const options = Array.isArray(q.options) ? q.options.map(String).filter(Boolean) : [];
+  const index = Number(q.correctIndex);
+  const isMcq = q.type === "mcq" && options.length >= 2 && Number.isInteger(index) && index >= 0 && index < options.length;
+  return isMcq
+    ? { type: "mcq", options, correctIndex: index }
+    : { type: "open", options: [], correctIndex: null };
+}
+
 
 /** Assessment Proctor (light): a short diagnostic before the path is built. */
 export async function generateDiagnostic(input: {
@@ -44,16 +70,20 @@ export async function generateDiagnostic(input: {
 Goal: ${input.goal}
 Self-reported level: ${input.level}
 
-Write exactly 4 short open-response diagnostic questions, ordered from easiest to hardest, that probe distinct prerequisite skills.
-Return JSON: {"questions":[{"id":"q1","prompt":"...","skill":"..."}]}`,
+Write exactly 5 diagnostic questions ordered from easiest to hardest, probing distinct prerequisite skills.
+Exactly 3 must be multiple choice ("mcq") with 4 plausible options and one correct option, and exactly 2 must be open response ("open").
+For mcq questions give "options" (4 strings) and "correctIndex" (0-based). For open questions use "options": [] and "correctIndex": null.
+Return JSON: {"questions":[{"id":"q1","prompt":"...","skill":"...","type":"mcq","options":["..."],"correctIndex":0}]}`,
       },
     ],
   });
-  return (result.questions ?? []).slice(0, 4).map((q, i) => ({
+  return (result.questions ?? []).slice(0, 5).map((q, i) => ({
     id: q.id || `q${i + 1}`,
     prompt: String(q.prompt ?? ""),
     skill: String(q.skill ?? "general"),
+    ...normaliseQuestion(q),
   }));
+
 }
 
 /** Curriculum Designer: turns the diagnostic into an ordered learning path. */
@@ -158,24 +188,40 @@ export async function generateCheck(input: {
 Concept: ${input.conceptTitle} — ${input.conceptSummary}
 Difficulty: ${input.difficulty}
 
-Write exactly 3 short free-response questions that test whether the student truly understands this concept (not recall alone).
-Return JSON: {"questions":[{"prompt":"...","expected":"the key points a correct answer must contain"}]}`,
+Write exactly 4 short questions that test whether the student truly understands this concept (not recall alone).
+Exactly 2 must be multiple choice ("mcq") with 4 options where the distractors reflect common misconceptions, and exactly 2 must be free response ("open").
+For mcq give "options" (4 strings) and "correctIndex" (0-based); for open use "options": [] and "correctIndex": null.
+"expected" holds the key points (for mcq, why the correct option is right).
+Return JSON: {"questions":[{"prompt":"...","expected":"...","type":"mcq","options":["..."],"correctIndex":0}]}`,
       },
     ],
   });
-  return (result.questions ?? []).slice(0, 3).map((q) => ({
+  return (result.questions ?? []).slice(0, 4).map((q) => ({
     prompt: String(q.prompt ?? ""),
     expected: String(q.expected ?? ""),
+    ...normaliseQuestion(q),
   }));
 }
 
-/** Performance Analyst: rubric grading of the formative check. */
+/** Performance Analyst: rubric grading of open answers, blended with MCQ accuracy. */
 export async function gradeCheck(input: {
   subject: string;
   conceptTitle: string;
-  answers: Array<{ prompt: string; expected: string; answer: string }>;
+  open: Array<{ prompt: string; expected: string; answer: string }>;
+  mcq: Array<{ prompt: string; chosen: string; correct: string; isCorrect: boolean }>;
 }): Promise<CheckGrade> {
-  const transcript = input.answers
+  const mcqScore = input.mcq.length
+    ? input.mcq.filter((m) => m.isCorrect).length / input.mcq.length
+    : null;
+
+  const mcqTranscript = input.mcq
+    .map(
+      (m, i) =>
+        `MCQ${i + 1}: ${m.prompt}\nChose: ${m.chosen || "(no answer)"}\nCorrect: ${m.correct}\nResult: ${m.isCorrect ? "correct" : "incorrect"}`,
+    )
+    .join("\n\n");
+
+  const openTranscript = input.open
     .map(
       (a, i) =>
         `Q${i + 1}: ${a.prompt}\nExpected key points: ${a.expected}\nStudent answer: ${a.answer || "(blank)"}`,
@@ -195,23 +241,28 @@ export async function gradeCheck(input: {
         role: "user",
         content: `Concept: ${input.conceptTitle}
 
-${transcript}
+Multiple choice results:
+${mcqTranscript || "(none)"}
 
-Grade overall understanding from 0 to 1. Classify the dominant error type.
+Written answers:
+${openTranscript || "(none)"}
+
+Grade the written answers from 0 to 1 in "score". Classify the dominant error type across everything, and write feedback that refers to both the multiple choice results and the written answers.
 Return JSON: {"score":0.0,"verdict":"mastered|progressing|struggling","feedback":"2-3 sentences addressed to the student","errorType":"careless|conceptual|knowledge-gap|none"}`,
       },
     ],
   });
 
-  const score = Math.min(1, Math.max(0, Number(result.score) || 0));
+  const openScore = Math.min(1, Math.max(0, Number(result.score) || 0));
+  const score =
+    mcqScore === null
+      ? openScore
+      : input.open.length === 0
+        ? mcqScore
+        : mcqScore * 0.4 + openScore * 0.6;
+
   const verdict: CheckGrade["verdict"] =
-    result.verdict === "mastered" || result.verdict === "progressing" || result.verdict === "struggling"
-      ? result.verdict
-      : score >= 0.8
-        ? "mastered"
-        : score >= 0.5
-          ? "progressing"
-          : "struggling";
+    score >= 0.8 ? "mastered" : score >= 0.5 ? "progressing" : "struggling";
 
   return {
     score,
@@ -225,5 +276,6 @@ Return JSON: {"score":0.0,"verdict":"mastered|progressing|struggling","feedback"
         : "none",
   };
 }
+
 
 export type { ChatMessage };
