@@ -1,4 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
+// Type-only: loads the `server` route-options augmentation for the type checker.
+import type {} from "@tanstack/start-client-core";
 
 export const Route = createFileRoute("/api/chat")({
   server: {
