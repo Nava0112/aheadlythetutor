@@ -278,4 +278,145 @@ Return JSON: {"score":0.0,"verdict":"mastered|progressing|struggling","feedback"
 }
 
 
+/** Conversation Analyst: reads the live tutoring chat for progress signals. */
+export type ChatSignals = {
+  masteryDelta: number;
+  stuck: boolean;
+  ahead: boolean;
+  note: string;
+};
+
+export async function analyzeChatSignals(input: {
+  subject: string;
+  conceptTitle: string;
+  conceptSummary: string;
+  mastery: number;
+  transcript: string;
+}): Promise<ChatSignals> {
+  const result = await groqJson<Partial<ChatSignals>>({
+    model: pickModel(input.subject),
+    temperature: 0.2,
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are a Performance Analyst reading a live tutoring conversation. You judge how the learner is really doing, not what they claim. Reply with JSON only.",
+      },
+      {
+        role: "user",
+        content: `Subject: ${input.subject}
+Concept: ${input.conceptTitle} — ${input.conceptSummary}
+Current mastery estimate: ${Math.round(input.mastery * 100)}%.
+
+Recent conversation:
+${input.transcript}
+
+Judge from the student's own reasoning and answers:
+- masteryDelta: how much to move the mastery estimate, between -0.15 and 0.15. Positive for clear correct reasoning in their own words, negative for persistent misconceptions.
+- stuck: true if they are circling the same confusion or cannot make progress.
+- ahead: true if they clearly already understand this concept (and likely the next ones).
+Return JSON: {"masteryDelta":0.0,"stuck":false,"ahead":false,"note":"one sentence describing the evidence"}`,
+      },
+    ],
+  });
+
+  return {
+    masteryDelta: Math.min(0.15, Math.max(-0.15, Number(result.masteryDelta) || 0)),
+    stuck: Boolean(result.stuck),
+    ahead: Boolean(result.ahead),
+    note: String(result.note ?? ""),
+  };
+}
+
+/** Curriculum Designer (re-run): rewrites the live schedule from new evidence. */
+export type PathAdaptation = {
+  level: string;
+  actions: Array<
+    | { action: "skip"; conceptTitle: string; reason: string }
+    | { action: "remove"; conceptTitle: string; reason: string }
+    | {
+        action: "insertAfter";
+        afterConceptTitle: string;
+        concept: { title: string; summary: string; difficulty: string };
+        reason: string;
+      }
+    | {
+        action: "retune";
+        conceptTitle: string;
+        newTitle?: string;
+        newSummary?: string;
+        newDifficulty?: string;
+        reason: string;
+      }
+  >;
+};
+
+export async function adaptLearningPath(input: {
+  subject: string;
+  goal: string;
+  level: string;
+  concepts: Array<{
+    title: string;
+    summary: string;
+    difficulty: string;
+    status: string;
+    mastery: number;
+    attempts: number;
+  }>;
+  currentConceptTitle: string;
+  struggleStreak: number;
+  teachingStyle: string;
+  trigger: "chat" | "check";
+  evidence: string;
+}): Promise<PathAdaptation> {
+  const conceptLines = input.concepts
+    .map(
+      (c, i) =>
+        `${i + 1}. "${c.title}" (${c.difficulty}, ${c.status}, mastery ${Math.round(
+          c.mastery * 100,
+        )}%, ${c.attempts} attempts) — ${c.summary}`,
+    )
+    .join("\n");
+
+  const result = await groqJson<Partial<PathAdaptation>>({
+    model: pickModel(input.subject),
+    temperature: 0.3,
+    maxTokens: 2500,
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are a Curriculum Designer maintaining one student's live learning path. You may only make at most 2 surgical changes per review — never rewrite the whole path. Reply with JSON only.",
+      },
+      {
+        role: "user",
+        content: `Subject: ${input.subject}
+Goal: ${input.goal}
+Current level: ${input.level}
+Current concept: "${input.currentConceptTitle}"
+Struggle streak: ${input.struggleStreak} · Teaching style: ${input.teachingStyle}
+Why this review was triggered: ${input.evidence}
+
+Current schedule:
+${conceptLines}
+
+Decide whether the schedule still fits. Allowed actions:
+- "skip": the student already knows a concept — mark it mastered and move past it.
+- "remove": a concept is redundant for this goal — drop it.
+- "insertAfter": a gap appeared — add ONE missing concept (title, one-sentence summary, difficulty) right after a named concept (remediation after a struggle, or a stretch challenge when racing ahead).
+- "retune": rename or adjust one concept's difficulty/summary to match the evidence.
+Return no actions ("actions":[]) if the schedule is already right.
+Return JSON: {"level":"beginner|intermediate|advanced","actions":[{"action":"skip","conceptTitle":"...","reason":"..."}]}`,
+      },
+    ],
+  });
+
+  return {
+    level: ["beginner", "intermediate", "advanced"].includes(String(result.level))
+      ? String(result.level)
+      : input.level,
+    actions: (result.actions ?? []).slice(0, 2),
+  };
+}
+
 export type { ChatMessage };
