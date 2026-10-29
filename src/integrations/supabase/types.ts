@@ -88,6 +88,44 @@ export type Database = {
         }
         Relationships: []
       }
+      path_adjustments: {
+        Row: {
+          created_at: string
+          detail: string
+          id: string
+          path_id: string
+          reason: string
+          trigger: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          detail?: string
+          id?: string
+          path_id: string
+          reason?: string
+          trigger?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          detail?: string
+          id?: string
+          path_id?: string
+          reason?: string
+          trigger?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "path_adjustments_path_id_fkey"
+            columns: ["path_id"]
+            isOneToOne: false
+            referencedRelation: "learning_paths"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       path_concepts: {
         Row: {
           created_at: string
